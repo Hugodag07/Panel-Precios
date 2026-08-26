@@ -1,0 +1,364 @@
+﻿<title>Panel de Combustibles</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --surface-2:      #f3f2ee;
+    --page-plane:      #f9f9f7;
+    --text-primary:   #14130f;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-diesel:  #eda100;
+    --series-regular: #1e8449;
+    --series-premium: #4a90e8;
+    --series-oil:     #111110;
+    --series-fx:      #4a3aa7;
+    --good:           #0ca30c;
+    --bad:            #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #17171a;
+      --surface-2:      #1e1e22;
+      --page-plane:      #0d0d0f;
+      --text-primary:   #f5f5f3;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #8b8a86;
+      --gridline:       #2c2c30;
+      --baseline:       #3a3a3f;
+      --border:         rgba(255,255,255,0.10);
+      --series-diesel:  #c98500;
+      --series-regular: #2ecc71;
+      --series-premium: #7ab4f5;
+      --series-oil:     #f2f2ef;
+      --series-fx:      #9085e9;
+      --good:           #0ca30c;
+      --bad:            #e66767;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #17171a;
+    --surface-2:      #1e1e22;
+    --page-plane:      #0d0d0f;
+    --text-primary:   #f5f5f3;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #8b8a86;
+    --gridline:       #2c2c30;
+    --baseline:       #3a3a3f;
+    --border:         rgba(255,255,255,0.10);
+    --series-diesel:  #c98500;
+    --series-regular: #2ecc71;
+    --series-premium: #7ab4f5;
+    --series-oil:     #f2f2ef;
+    --series-fx:      #9085e9;
+    --good:           #0ca30c;
+    --bad:            #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  .viz-root {
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100%;
+    padding: 40px 20px 64px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  .eyebrow {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-muted); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(26px, 4vw, 32px); font-weight: 700; letter-spacing: -0.01em;
+    line-height: 1.15; margin: 0 0 10px; text-wrap: balance;
+  }
+  .sub { font-size: 15px; color: var(--text-secondary); max-width: 66ch; line-height: 1.55; margin: 0 0 40px; }
+
+  .section { margin-bottom: 44px; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+  h2 { font-size: 19px; font-weight: 700; margin: 0; letter-spacing: -0.005em; }
+  .section-range { font-size: 12.5px; color: var(--text-muted); font-family: "IBM Plex Mono", monospace; }
+  .section-note {
+    font-size: 12.5px; color: var(--text-muted); margin: 4px 0 16px; line-height: 1.5; max-width: 66ch;
+  }
+
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px 10px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+
+  .chart-scroll { overflow-x: auto; }
+  svg { display: block; overflow: visible; font-family: "IBM Plex Sans", sans-serif; }
+  .axis-label { fill: var(--text-muted); font-size: 10.5px; }
+  .axis-label.tab { font-family: "IBM Plex Mono", monospace; }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .baseline { stroke: var(--baseline); stroke-width: 1; stroke-dasharray: 3 3; }
+  .line { fill: none; stroke-width: 2; }
+  .endpoint { stroke: var(--surface-1); stroke-width: 2; }
+  .end-label { font-size: 11px; font-weight: 600; font-family: "IBM Plex Mono", monospace; }
+  .hover-line { stroke: var(--text-muted); stroke-width: 1; opacity: 0; pointer-events: none; }
+  .hover-dot { r: 4; stroke: var(--surface-1); stroke-width: 2; opacity: 0; pointer-events: none; }
+  .hit-area { fill: transparent; cursor: crosshair; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.6;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18); opacity: 0; transition: opacity 0.1s ease;
+    white-space: nowrap; z-index: 5;
+  }
+  .tooltip-date { font-weight: 600; color: var(--text-primary); margin-bottom: 4px; font-family: "IBM Plex Mono", monospace; }
+  .tooltip-row { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+  .tooltip-row .dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .tooltip-row .val { font-family: "IBM Plex Mono", monospace; color: var(--text-primary); margin-left: auto; padding-left: 14px; font-variant-numeric: tabular-nums; }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px;
+    background: var(--border); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-top: 16px;
+  }
+  .stat { background: var(--surface-1); padding: 14px 16px; }
+  .stat-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 7px; }
+  .stat-value { font-family: "IBM Plex Mono", monospace; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; margin-bottom: 2px; }
+  .stat-delta { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat-delta.up { color: var(--bad); }
+  .stat-delta.down { color: var(--good); }
+
+  .foot { font-size: 12.5px; color: var(--text-muted); margin-top: 8px; line-height: 1.6; max-width: 68ch; }
+
+  @media (max-width: 640px) { .card { padding: 16px 14px 8px; } }
+</style>
+
+<div class="viz-root">
+  <div class="wrap">
+    <p class="eyebrow">Skill Trading Combustible — CLARIGO</p>
+    <h1>Panel de precios de combustible</h1>
+    <p class="sub">Cuatro comparaciones separadas, todas indexadas a base 100 en su fecha de inicio.</p>
+
+    <div class="section" id="sec-ytd3"></div>
+    <div class="section" id="sec-mtd3"></div>
+    <div class="section" id="sec-wtd3"></div>
+    <div class="section" id="sec-ytdprod"></div>
+
+    <p class="foot">
+      Fuentes: precios Petroperú de <code>petroperu_precios</code> (histórico interno CLARIGO, empieza el 7 de mayo
+      2026); crudo WTI (CL=F) y USD/PEN vía Yahoo Finance. Índice = valor del día ÷ valor base × 100.
+    </p>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-date" id="tt-date"></div>
+  <div id="tt-rows"></div>
+</div>
+
+<script>
+const DATASETS = {
+  ytd3:     {"fechas": ["2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21", "2026-05-22", "2026-05-23", "2026-05-24", "2026-05-25", "2026-05-26", "2026-05-27", "2026-05-28", "2026-05-29", "2026-05-30", "2026-05-31", "2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-06", "2026-06-07", "2026-06-08", "2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12", "2026-06-13", "2026-06-14", "2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19", "2026-06-20", "2026-06-21", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-27", "2026-06-28", "2026-06-29", "2026-06-30", "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04", "2026-07-05", "2026-07-06", "2026-07-07", "2026-07-08", "2026-07-09", "2026-07-10", "2026-07-11", "2026-07-12", "2026-07-13", "2026-07-14", "2026-07-15", "2026-07-16", "2026-07-17", "2026-07-18", "2026-07-19", "2026-07-20", "2026-07-21", "2026-07-22", "2026-07-23", "2026-07-24", "2026-07-25", "2026-07-26", "2026-07-27", "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31", "2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06", "2026-08-07", "2026-08-08", "2026-08-09", "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14", "2026-08-15", "2026-08-16", "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25", "2026-08-26"], "diesel_val": [20.6854, 20.6854, 20.6854, 20.6854, 20.6854, 20.6618, 20.6618, 20.6618, 20.6618, 20.6618, 20.6618, 20.6618, 19.9774, 19.9774, 19.9774, 19.1514, 19.1514, 19.1514, 19.1514, 18.3018, 18.3018, 18.3018, 18.3018, 18.3018, 18.3018, 18.3018, 17.6174, 17.6174, 17.6174, 18.0894, 18.0894, 18.0894, 18.0894, 17.7472, 17.7472, 17.7472, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.3106, 17.3106, 17.3106, 17.9006, 17.9006, 17.9006, 17.9006, 18.5614, 18.5614, 19.5054, 19.5054, 19.5054, 19.5054, 19.5054, 21.0158, 21.0158, 21.0158, 21.0158, 21.6058, 21.6058, 21.6058, 21.6058, 23.0572, 23.0572, 23.0572, 23.0572, 23.0572, 23.0572, 23.6354, 23.6354, 23.6354, 23.6354, 23.6354, 23.6354, 23.6354, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.5056, 23.5056], "diesel_idx": [100.0, 100.0, 100.0, 100.0, 100.0, 99.89, 99.89, 99.89, 99.89, 99.89, 99.89, 99.89, 96.58, 96.58, 96.58, 92.58, 92.58, 92.58, 92.58, 88.48, 88.48, 88.48, 88.48, 88.48, 88.48, 88.48, 85.17, 85.17, 85.17, 87.45, 87.45, 87.45, 87.45, 85.8, 85.8, 85.8, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.69, 83.69, 83.69, 86.54, 86.54, 86.54, 86.54, 89.73, 89.73, 94.3, 94.3, 94.3, 94.3, 94.3, 101.6, 101.6, 101.6, 101.6, 104.45, 104.45, 104.45, 104.45, 111.47, 111.47, 111.47, 111.47, 111.47, 111.47, 114.26, 114.26, 114.26, 114.26, 114.26, 114.26, 114.26, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 113.63, 113.63], "oil_val": [94.81, 95.42, 95.42, 95.42, 98.07, 102.18, 101.02, 101.17, 105.42, 105.42, 105.42, 108.66, 107.77, 98.26, 96.35, 96.6, 96.6, 96.6, 96.6, 93.89, 88.68, 88.9, 87.36, 87.36, 87.36, 92.16, 93.76, 96.02, 93.04, 90.54, 90.54, 90.54, 91.3, 88.2, 90.03, 87.71, 84.88, 84.88, 84.88, 80.75, 76.05, 76.79, 76.6, 76.6, 76.6, 76.6, 74.82, 73.21, 70.34, 71.92, 69.23, 69.23, 69.23, 70.75, 69.5, 68.58, 68.69, 68.69, 68.69, 68.69, 68.55, 70.44, 73.52, 72.08, 71.41, 71.41, 71.41, 78.14, 79.34, 79.6, 78.95, 82.49, 82.49, 82.49, 83.23, 84.91, 86.83, 92.19, 89.31, 89.31, 89.31, 82.61, 79.26, 84.46, 83.59, 84.67, 84.67, 84.67, 80.34, 75.77, 75.22, 77.29, 78.18, 78.18, 78.18, 82.13, 83.2, 83.27, 81.25, 82.4, 82.4, 82.4, 84.5, 84.94, 85.83, 87.83, 87.06, 87.06, 87.06, 85.01, 82.36, 83.11], "oil_idx": [100.0, 100.64, 100.64, 100.64, 103.44, 107.77, 106.55, 106.71, 111.19, 111.19, 111.19, 114.61, 113.67, 103.64, 101.62, 101.89, 101.89, 101.89, 101.89, 99.03, 93.53, 93.77, 92.14, 92.14, 92.14, 97.2, 98.89, 101.28, 98.13, 95.5, 95.5, 95.5, 96.3, 93.03, 94.96, 92.51, 89.53, 89.53, 89.53, 85.17, 80.21, 80.99, 80.79, 80.79, 80.79, 80.79, 78.92, 77.22, 74.19, 75.86, 73.02, 73.02, 73.02, 74.62, 73.3, 72.33, 72.45, 72.45, 72.45, 72.45, 72.3, 74.3, 77.54, 76.03, 75.32, 75.32, 75.32, 82.42, 83.68, 83.96, 83.27, 87.01, 87.01, 87.01, 87.79, 89.56, 91.58, 97.24, 94.2, 94.2, 94.2, 87.13, 83.6, 89.08, 88.17, 89.3, 89.3, 89.3, 84.74, 79.92, 79.34, 81.52, 82.46, 82.46, 82.46, 86.63, 87.75, 87.83, 85.7, 86.91, 86.91, 86.91, 89.13, 89.59, 90.53, 92.64, 91.83, 91.83, 91.83, 89.66, 86.87, 87.66], "fx_val": [3.457, 3.457, 3.457, 3.3804, 3.428, 3.3595, 3.427, 3.421, 3.421, 3.421, 3.3662, 3.4215, 3.3539, 3.411, 3.408, 3.408, 3.408, 3.3284, 3.3372, 3.404, 3.3374, 3.408, 3.408, 3.408, 3.398, 3.3314, 3.402, 3.4025, 3.3331, 3.3331, 3.3331, 3.47, 3.47, 3.389, 3.3321, 3.3309, 3.3309, 3.3309, 3.3313, 3.3323, 3.404, 3.3445, 3.382, 3.382, 3.382, 3.3115, 3.379, 3.3214, 3.42, 3.42, 3.42, 3.42, 3.3428, 3.41, 3.3423, 3.416, 3.4, 3.4, 3.4, 3.3339, 3.3281, 3.396, 3.406, 3.399, 3.399, 3.399, 3.3306, 3.41, 3.39, 3.3185, 3.38, 3.38, 3.38, 3.3181, 3.3207, 3.394, 3.399, 3.3323, 3.3323, 3.3323, 3.3339, 3.4, 3.402, 3.4, 3.3193, 3.3193, 3.3193, 3.3095, 3.312, 3.392, 3.383, 3.3101, 3.3101, 3.3101, 3.3073, 3.3093, 3.378, 3.358, 3.3078, 3.3078, 3.3078, 3.2997, 3.2974, 3.365, 3.363, 3.3525, 3.3525, 3.3525, 3.288, 3.3515, 3.3515, 3.3477], "fx_idx": [100.0, 100.0, 100.0, 97.79, 99.16, 97.18, 99.13, 98.96, 98.96, 98.96, 97.37, 98.97, 97.02, 98.67, 98.58, 98.58, 98.58, 96.28, 96.53, 98.47, 96.54, 98.58, 98.58, 98.58, 98.29, 96.37, 98.41, 98.42, 96.42, 96.42, 96.42, 100.38, 100.38, 98.03, 96.39, 96.35, 96.35, 96.35, 96.37, 96.39, 98.47, 96.75, 97.83, 97.83, 97.83, 95.79, 97.74, 96.08, 98.93, 98.93, 98.93, 98.93, 96.7, 98.64, 96.68, 98.81, 98.35, 98.35, 98.35, 96.44, 96.27, 98.24, 98.52, 98.32, 98.32, 98.32, 96.34, 98.64, 98.06, 95.99, 97.77, 97.77, 97.77, 95.98, 96.06, 98.18, 98.32, 96.39, 96.39, 96.39, 96.44, 98.35, 98.41, 98.35, 96.02, 96.02, 96.02, 95.73, 95.81, 98.12, 97.86, 95.75, 95.75, 95.75, 95.67, 95.73, 97.71, 97.14, 95.68, 95.68, 95.68, 95.45, 95.38, 97.34, 97.28, 96.98, 96.98, 96.98, 95.11, 96.95, 96.95, 96.84]},
+  mtd3:     {"fechas": ["2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06", "2026-08-07", "2026-08-08", "2026-08-09", "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14", "2026-08-15", "2026-08-16", "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25", "2026-08-26"], "diesel_val": [23.0572, 23.0572, 23.0572, 23.6354, 23.6354, 23.6354, 23.6354, 23.6354, 23.6354, 23.6354, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.5056, 23.5056], "diesel_idx": [100.0, 100.0, 100.0, 102.51, 102.51, 102.51, 102.51, 102.51, 102.51, 102.51, 100.15, 100.15, 100.15, 100.15, 100.15, 100.15, 100.15, 100.15, 100.15, 100.15, 100.15, 100.15, 100.15, 100.15, 101.94, 101.94], "oil_val": [84.67, 84.67, 80.34, 75.77, 75.22, 77.29, 78.18, 78.18, 78.18, 82.13, 83.2, 83.27, 81.25, 82.4, 82.4, 82.4, 84.5, 84.94, 85.83, 87.83, 87.06, 87.06, 87.06, 85.01, 82.36, 83.11], "oil_idx": [100.0, 100.0, 94.89, 89.49, 88.84, 91.28, 92.33, 92.33, 92.33, 97.0, 98.26, 98.35, 95.96, 97.32, 97.32, 97.32, 99.8, 100.32, 101.37, 103.73, 102.82, 102.82, 102.82, 100.4, 97.27, 98.16], "fx_val": [3.3193, 3.3095, 3.312, 3.392, 3.383, 3.3101, 3.3101, 3.3101, 3.3073, 3.3093, 3.378, 3.358, 3.3078, 3.3078, 3.3078, 3.2997, 3.2974, 3.365, 3.363, 3.3525, 3.3525, 3.3525, 3.288, 3.3515, 3.3515, 3.3477], "fx_idx": [100.0, 99.7, 99.78, 102.19, 101.92, 99.72, 99.72, 99.72, 99.64, 99.7, 101.77, 101.16, 99.65, 99.65, 99.65, 99.41, 99.34, 101.38, 101.32, 101.0, 101.0, 101.0, 99.06, 100.97, 100.97, 100.85]},
+  wtd3:     {"fechas": ["2026-08-24", "2026-08-25", "2026-08-26"], "diesel_val": [23.0926, 23.5056, 23.5056], "diesel_idx": [100.0, 101.79, 101.79], "oil_val": [85.01, 82.36, 83.11], "oil_idx": [100.0, 96.88, 97.76], "fx_val": [3.3515, 3.3515, 3.3477], "fx_idx": [100.0, 100.0, 99.89]},
+  ytdprod:  {"fechas": ["2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21", "2026-05-22", "2026-05-23", "2026-05-24", "2026-05-25", "2026-05-26", "2026-05-27", "2026-05-28", "2026-05-29", "2026-05-30", "2026-05-31", "2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-06", "2026-06-07", "2026-06-08", "2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12", "2026-06-13", "2026-06-14", "2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19", "2026-06-20", "2026-06-21", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-27", "2026-06-28", "2026-06-29", "2026-06-30", "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04", "2026-07-05", "2026-07-06", "2026-07-07", "2026-07-08", "2026-07-09", "2026-07-10", "2026-07-11", "2026-07-12", "2026-07-13", "2026-07-14", "2026-07-15", "2026-07-16", "2026-07-17", "2026-07-18", "2026-07-19", "2026-07-20", "2026-07-21", "2026-07-22", "2026-07-23", "2026-07-24", "2026-07-25", "2026-07-26", "2026-07-27", "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31", "2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06", "2026-08-07", "2026-08-08", "2026-08-09", "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14", "2026-08-15", "2026-08-16", "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25", "2026-08-26"], "diesel_val": [20.6854, 20.6854, 20.6854, 20.6854, 20.6854, 20.6618, 20.6618, 20.6618, 20.6618, 20.6618, 20.6618, 20.6618, 19.9774, 19.9774, 19.9774, 19.1514, 19.1514, 19.1514, 19.1514, 18.3018, 18.3018, 18.3018, 18.3018, 18.3018, 18.3018, 18.3018, 17.6174, 17.6174, 17.6174, 18.0894, 18.0894, 18.0894, 18.0894, 17.7472, 17.7472, 17.7472, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 18.3372, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.346, 17.3106, 17.3106, 17.3106, 17.9006, 17.9006, 17.9006, 17.9006, 18.5614, 18.5614, 19.5054, 19.5054, 19.5054, 19.5054, 19.5054, 21.0158, 21.0158, 21.0158, 21.0158, 21.6058, 21.6058, 21.6058, 21.6058, 23.0572, 23.0572, 23.0572, 23.0572, 23.0572, 23.0572, 23.6354, 23.6354, 23.6354, 23.6354, 23.6354, 23.6354, 23.6354, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.0926, 23.5056, 23.5056], "diesel_idx": [100.0, 100.0, 100.0, 100.0, 100.0, 99.89, 99.89, 99.89, 99.89, 99.89, 99.89, 99.89, 96.58, 96.58, 96.58, 92.58, 92.58, 92.58, 92.58, 88.48, 88.48, 88.48, 88.48, 88.48, 88.48, 88.48, 85.17, 85.17, 85.17, 87.45, 87.45, 87.45, 87.45, 85.8, 85.8, 85.8, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 88.65, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.86, 83.69, 83.69, 83.69, 86.54, 86.54, 86.54, 86.54, 89.73, 89.73, 94.3, 94.3, 94.3, 94.3, 94.3, 101.6, 101.6, 101.6, 101.6, 104.45, 104.45, 104.45, 104.45, 111.47, 111.47, 111.47, 111.47, 111.47, 111.47, 114.26, 114.26, 114.26, 114.26, 114.26, 114.26, 114.26, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 111.64, 113.63, 113.63], "regular_val": [18.2164, 18.2164, 18.2164, 18.2164, 18.2164, 18.6752, 18.6752, 18.6752, 18.6752, 18.6752, 18.6752, 18.6752, 17.6684, 17.6684, 17.6684, 16.9037, 16.9037, 16.9037, 16.9037, 16.5979, 16.5979, 16.5979, 16.5979, 16.5979, 16.5979, 16.5979, 15.6803, 15.6803, 15.6803, 16.0626, 16.0626, 16.0626, 16.0626, 15.1196, 15.1196, 15.1196, 15.7568, 15.7568, 15.7568, 15.7568, 15.6548, 15.6548, 15.6548, 15.6548, 15.6548, 15.6548, 15.6548, 15.196, 15.196, 15.196, 15.196, 15.196, 15.196, 15.196, 15.196, 15.196, 15.196, 15.196, 15.196, 15.196, 15.196, 15.3107, 15.3107, 15.3107, 15.3107, 15.3107, 15.3107, 15.3107, 15.6421, 15.6421, 16.0244, 16.0244, 16.0244, 16.0244, 16.0244, 16.3685, 16.3685, 16.3685, 16.3685, 17.0057, 17.0057, 17.0057, 17.0057, 17.7194, 17.7194, 17.7194, 17.7194, 17.7194, 17.7194, 18.5222, 18.5222, 18.5222, 18.5222, 18.5222, 18.5222, 18.5222, 17.8213, 17.8213, 17.8213, 17.8213, 17.8213, 17.8213, 17.8213, 17.8213, 17.8213, 19.0957, 19.0957, 19.0957, 19.0957, 19.0957, 19.5672, 19.5672], "regular_idx": [100.0, 100.0, 100.0, 100.0, 100.0, 102.52, 102.52, 102.52, 102.52, 102.52, 102.52, 102.52, 96.99, 96.99, 96.99, 92.79, 92.79, 92.79, 92.79, 91.12, 91.12, 91.12, 91.12, 91.12, 91.12, 91.12, 86.08, 86.08, 86.08, 88.18, 88.18, 88.18, 88.18, 83.0, 83.0, 83.0, 86.5, 86.5, 86.5, 86.5, 85.94, 85.94, 85.94, 85.94, 85.94, 85.94, 85.94, 83.42, 83.42, 83.42, 83.42, 83.42, 83.42, 83.42, 83.42, 83.42, 83.42, 83.42, 83.42, 83.42, 83.42, 84.05, 84.05, 84.05, 84.05, 84.05, 84.05, 84.05, 85.87, 85.87, 87.97, 87.97, 87.97, 87.97, 87.97, 89.86, 89.86, 89.86, 89.86, 93.35, 93.35, 93.35, 93.35, 97.27, 97.27, 97.27, 97.27, 97.27, 97.27, 101.68, 101.68, 101.68, 101.68, 101.68, 101.68, 101.68, 97.83, 97.83, 97.83, 97.83, 97.83, 97.83, 97.83, 97.83, 97.83, 104.83, 104.83, 104.83, 104.83, 104.83, 107.42, 107.42], "premium_val": [19.5063, 19.5063, 19.5063, 19.5063, 19.5063, 19.0476, 19.0476, 19.0476, 19.0476, 19.0476, 19.0476, 19.0476, 18.678, 18.678, 18.678, 18.1682, 18.1682, 18.1682, 18.1682, 17.4673, 17.4673, 17.4673, 17.4673, 17.4673, 17.4673, 17.4673, 16.5497, 16.5497, 16.5497, 16.5497, 17.0595, 17.0595, 17.0595, 16.091, 16.091, 16.091, 16.4733, 16.4733, 16.4733, 16.4733, 16.3203, 16.3203, 16.3203, 16.3203, 16.3203, 16.3203, 16.3203, 15.8106, 15.8106, 15.8106, 15.8106, 15.8106, 15.8106, 15.8106, 15.8106, 15.8106, 15.8106, 15.8106, 15.8106, 15.8106, 15.8106, 15.4665, 15.4665, 15.4665, 15.4665, 15.4665, 15.4665, 15.4665, 15.8361, 15.8361, 16.2184, 16.2184, 16.2184, 16.2184, 16.2184, 16.9066, 16.9066, 16.9066, 16.9066, 17.2889, 17.2889, 17.2889, 17.2889, 18.0918, 18.0918, 18.0918, 18.0918, 18.0918, 18.0918, 18.9329, 18.9329, 18.9329, 18.9329, 18.9329, 18.9329, 18.9329, 18.1682, 18.1682, 18.1682, 18.1682, 18.1682, 18.1682, 18.1682, 18.1682, 18.1682, 20.4621, 20.4621, 20.4621, 20.4621, 20.4621, 20.9082, 20.9082], "premium_idx": [100.0, 100.0, 100.0, 100.0, 100.0, 97.65, 97.65, 97.65, 97.65, 97.65, 97.65, 97.65, 95.75, 95.75, 95.75, 93.14, 93.14, 93.14, 93.14, 89.55, 89.55, 89.55, 89.55, 89.55, 89.55, 89.55, 84.84, 84.84, 84.84, 84.84, 87.46, 87.46, 87.46, 82.49, 82.49, 82.49, 84.45, 84.45, 84.45, 84.45, 83.67, 83.67, 83.67, 83.67, 83.67, 83.67, 83.67, 81.05, 81.05, 81.05, 81.05, 81.05, 81.05, 81.05, 81.05, 81.05, 81.05, 81.05, 81.05, 81.05, 81.05, 79.29, 79.29, 79.29, 79.29, 79.29, 79.29, 79.29, 81.18, 81.18, 83.14, 83.14, 83.14, 83.14, 83.14, 86.67, 86.67, 86.67, 86.67, 88.63, 88.63, 88.63, 88.63, 92.75, 92.75, 92.75, 92.75, 92.75, 92.75, 97.06, 97.06, 97.06, 97.06, 97.06, 97.06, 97.06, 93.14, 93.14, 93.14, 93.14, 93.14, 93.14, 93.14, 93.14, 93.14, 104.9, 104.9, 104.9, 104.9, 104.9, 107.19, 107.19]},
+};
+
+const SERIES_DEFS = {
+  diesel:  { cvar: "--series-diesel",  unit: "S/",  dec: 4, label: "Diésel" },
+  regular: { cvar: "--series-regular", unit: "S/",  dec: 4, label: "Regular" },
+  premium: { cvar: "--series-premium", unit: "S/",  dec: 4, label: "Premium" },
+  oil:     { cvar: "--series-oil",     unit: "US$", dec: 2, label: "Crudo WTI" },
+  fx:      { cvar: "--series-fx",      unit: "S/",  dec: 4, label: "USD/PEN" },
+};
+
+const MONTHS = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+function fmtDate(iso) {
+  const [Y, Mo, D] = iso.split("-");
+  return `${D} ${MONTHS[parseInt(Mo)-1]} ${Y}`;
+}
+function cssVar(name) {
+  return getComputedStyle(document.querySelector(".viz-root")).getPropertyValue(name).trim();
+}
+
+function buildSection(containerId, title, rangeLabel, note, data, seriesKeys) {
+  const container = document.getElementById(containerId);
+  const uid = containerId;
+
+  const legendHtml = seriesKeys.map(k => {
+    const s = SERIES_DEFS[k];
+    return `<div class="legend-item"><span class="swatch" style="background:var(${s.cvar})"></span>${s.label}</div>`;
+  }).join("");
+
+  container.innerHTML = `
+    <div class="section-head"><h2>${title}</h2><span class="section-range">${rangeLabel}</span></div>
+    ${note ? `<p class="section-note">${note}</p>` : ""}
+    <div class="card">
+      <div class="legend">${legendHtml}</div>
+      <div class="chart-scroll"><svg id="${uid}-svg" width="836" height="${data.fechas.length <= 4 ? 220 : 300}" viewBox="0 0 836 ${data.fechas.length <= 4 ? 220 : 300}"></svg></div>
+    </div>
+    <div class="stats" id="${uid}-stats"></div>
+  `;
+
+  renderChart(uid, data, seriesKeys);
+}
+
+function renderChart(uid, data, seriesKeys) {
+  const svg = document.getElementById(uid + "-svg");
+  const fechas = data.fechas;
+  const n = fechas.length;
+  const H = parseInt(svg.getAttribute("height"));
+  const W = 836;
+  const M = { top: 14, right: 56, bottom: 24, left: 4 };
+  const plotW = W - M.left - M.right;
+  const plotH = H - M.top - M.bottom;
+
+  const allIdx = seriesKeys.flatMap(k => data[k + "_idx"]);
+  const yMin = Math.floor(Math.min(100, ...allIdx) / 2) * 2 - 2;
+  const yMax = Math.ceil(Math.max(100, ...allIdx) / 2) * 2 + 2;
+
+  const x = i => n === 1 ? M.left + plotW / 2 : M.left + (i / (n - 1)) * plotW;
+  const y = v => M.top + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+  const ns = "http://www.w3.org/2000/svg";
+  function el(tag, attrs) {
+    const e = document.createElementNS(ns, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  const step = (yMax - yMin) > 20 ? 10 : (yMax - yMin) > 8 ? 5 : 2;
+  for (let v = Math.ceil(yMin / step) * step; v <= yMax; v += step) {
+    const gy = y(v);
+    svg.appendChild(el("line", { x1: M.left, x2: M.left + plotW, y1: gy, y2: gy, class: v === 100 ? "baseline" : "gridline" }));
+    svg.appendChild(Object.assign(el("text", { x: M.left + plotW + 8, y: gy + 4, class: "axis-label tab" }), { textContent: v }));
+  }
+
+  if (n > 4) {
+    const seen = new Set();
+    fechas.forEach((f, i) => {
+      const [Y, Mo, D] = f.split("-");
+      const key = Y + "-" + Mo;
+      if (!seen.has(key) && (i === 0 || parseInt(D) <= 3)) {
+        seen.add(key);
+        const t = el("text", { x: x(i), y: H - 4, class: "axis-label" });
+        t.textContent = MONTHS[parseInt(Mo) - 1];
+        svg.appendChild(t);
+      }
+    });
+  } else {
+    fechas.forEach((f, i) => {
+      const [Y, Mo, D] = f.split("-");
+      const t = el("text", { x: x(i), y: H - 4, class: "axis-label" });
+      t.textContent = D + " " + MONTHS[parseInt(Mo) - 1];
+      svg.appendChild(t);
+    });
+  }
+
+  seriesKeys.forEach(k => {
+    const color = cssVar(SERIES_DEFS[k].cvar);
+    const pts = data[k + "_idx"].map((v, i) => `${x(i)},${y(v)}`).join(" ");
+    svg.appendChild(el(n === 1 ? "circle" : "polyline",
+      n === 1 ? { cx: x(0), cy: y(data[k+"_idx"][0]), r: 4, style: `fill:${color}` }
+              : { points: pts, class: "line", style: `stroke:${color}` }));
+  });
+
+  const lastI = n - 1;
+  seriesKeys.forEach((k, si) => {
+    const color = cssVar(SERIES_DEFS[k].cvar);
+    const lv = data[k + "_idx"][lastI];
+    svg.appendChild(el("circle", { cx: x(lastI), cy: y(lv), r: 4, class: "endpoint", style: `fill:${color}` }));
+    const t = el("text", { x: x(lastI) + 9, y: y(lv) + 4 + (si - (seriesKeys.length-1)/2) * 1.2, class: "end-label", style: `fill:${color}` });
+    t.textContent = lv.toFixed(1);
+    svg.appendChild(t);
+  });
+
+  const hoverLine = el("line", { y1: M.top, y2: M.top + plotH, class: "hover-line" });
+  svg.appendChild(hoverLine);
+  const hoverDots = seriesKeys.map(k => {
+    const d = el("circle", { class: "hover-dot", style: `fill:${cssVar(SERIES_DEFS[k].cvar)}` });
+    svg.appendChild(d);
+    return d;
+  });
+
+  const hit = el("rect", { x: M.left, y: M.top, width: plotW, height: plotH, class: "hit-area" });
+  svg.appendChild(hit);
+
+  const tooltip = document.getElementById("tooltip");
+  const ttDate = document.getElementById("tt-date");
+  const ttRows = document.getElementById("tt-rows");
+  const root = document.querySelector(".viz-root");
+
+  function idxFromClientX(clientX) {
+    const rect = svg.getBoundingClientRect();
+    const scale = W / rect.width;
+    const svgX = (clientX - rect.left) * scale;
+    const frac = (svgX - M.left) / plotW;
+    return Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1))));
+  }
+
+  function showAt(i, clientX, clientY) {
+    ttRows.innerHTML = seriesKeys.map(k => {
+      const s = SERIES_DEFS[k];
+      const v = data[k + "_val"][i];
+      return `<div class="tooltip-row"><span class="dot" style="background:${cssVar(s.cvar)}"></span>${s.label}<span class="val">${s.unit} ${v.toFixed(s.dec)}</span></div>`;
+    }).join("");
+    hoverLine.setAttribute("x1", x(i));
+    hoverLine.setAttribute("x2", x(i));
+    hoverLine.style.opacity = 1;
+    seriesKeys.forEach((k, si) => {
+      hoverDots[si].setAttribute("cx", x(i));
+      hoverDots[si].setAttribute("cy", y(data[k + "_idx"][i]));
+      hoverDots[si].style.opacity = 1;
+    });
+    ttDate.textContent = fmtDate(fechas[i]);
+    const rootRect = root.getBoundingClientRect();
+    tooltip.style.opacity = 1;
+    tooltip.style.left = (clientX - rootRect.left + 16) + "px";
+    tooltip.style.top = (clientY - rootRect.top - (40 + seriesKeys.length * 22)) + "px";
+  }
+  function hide() {
+    hoverLine.style.opacity = 0;
+    hoverDots.forEach(d => d.style.opacity = 0);
+    tooltip.style.opacity = 0;
+  }
+
+  hit.addEventListener("mousemove", (e) => showAt(idxFromClientX(e.clientX), e.clientX, e.clientY));
+  hit.addEventListener("mouseleave", hide);
+  hit.addEventListener("touchmove", (e) => { const t = e.touches[0]; showAt(idxFromClientX(t.clientX), t.clientX, t.clientY); }, { passive: true });
+  hit.addEventListener("touchend", hide);
+
+  const statsEl = document.getElementById(uid + "-stats");
+  seriesKeys.forEach(k => {
+    const s = SERIES_DEFS[k];
+    const delta = data[k + "_idx"][lastI] - 100;
+    const up = delta >= 0;
+    const div = document.createElement("div");
+    div.className = "stat";
+    div.innerHTML = `
+      <div class="stat-label"><span class="swatch" style="background:${cssVar(s.cvar)}"></span>${s.label}</div>
+      <div class="stat-value">${s.unit} ${data[k + "_val"][lastI].toFixed(s.dec)}</div>
+      <div class="stat-delta ${up ? "up" : "down"}">${up ? "+" : ""}${delta.toFixed(1)}%</div>
+    `;
+    statsEl.appendChild(div);
+  });
+}
+
+buildSection("sec-ytd3", "Diésel vs. crudo vs. dólar — desde inicio de datos", `${fmtDate(DATASETS.ytd3.fechas[0])} → ${fmtDate(DATASETS.ytd3.fechas[DATASETS.ytd3.fechas.length-1])}`,
+  "No se pudo usar el 1 de enero: el histórico de Petroperú recién empieza el 7 de mayo 2026.",
+  DATASETS.ytd3, ["diesel", "oil", "fx"]);
+
+buildSection("sec-mtd3", "Diésel vs. crudo vs. dólar — este mes", `${fmtDate(DATASETS.mtd3.fechas[0])} → ${fmtDate(DATASETS.mtd3.fechas[DATASETS.mtd3.fechas.length-1])}`,
+  null, DATASETS.mtd3, ["diesel", "oil", "fx"]);
+
+buildSection("sec-wtd3", "Diésel vs. crudo vs. dólar — esta semana", `${fmtDate(DATASETS.wtd3.fechas[0])} → ${fmtDate(DATASETS.wtd3.fechas[DATASETS.wtd3.fechas.length-1])}`,
+  "Semana empieza el lunes.",
+  DATASETS.wtd3, ["diesel", "oil", "fx"]);
+
+buildSection("sec-ytdprod", "Diésel vs. Regular vs. Premium — desde inicio de datos", `${fmtDate(DATASETS.ytdprod.fechas[0])} → ${fmtDate(DATASETS.ytdprod.fechas[DATASETS.ytdprod.fechas.length-1])}`,
+  "Solo los 3 productos de Petroperú entre sí, sin crudo ni tipo de cambio.",
+  DATASETS.ytdprod, ["diesel", "regular", "premium"]);
+</script>
